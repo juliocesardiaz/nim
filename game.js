@@ -133,6 +133,10 @@ function renderStatus() {
   const variantLabel = document.getElementById('variant-label');
   turnLabel.textContent = state.over ? '' : `${playerName(state.currentPlayer)}'s turn`;
   variantLabel.textContent = state.variant === 'misere' ? 'Misère' : 'Normal';
+
+  // Color the turn label: pink for AI, teal for human
+  const isAI = state.mode === 'hva' && state.currentPlayer === 1;
+  turnLabel.classList.toggle('ai-turn', isAI && !state.over);
 }
 
 function showResult(winnerIdx) {
