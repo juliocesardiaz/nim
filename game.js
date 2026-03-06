@@ -5,6 +5,7 @@ const state = {
   selectedPile: null,
   mode: 'hvh',        // 'hvh' | 'hva'
   variant: 'normal',  // 'normal' | 'misere'
+  difficulty: 'hard', // 'easy' | 'medium' | 'hard'
   over: false,
 };
 
@@ -59,6 +60,47 @@ function fallback(piles) {
     if (piles[i] > piles[idx]) idx = i;
   }
   return { pile: idx, take: 1 };
+}
+
+/**
+ * Easy difficulty: anti-optimal play.
+ * Always tries to leave nim-sum ≠ 0, which puts the human in the winning
+ * position. Since every Nim position is either a P-position (nim-sum = 0,
+ * previous player wins) or an N-position (nim-sum ≠ 0, next player wins),
+ * deliberately avoiding the winning move guarantees the human can always win
+ * with correct play. When no anti-optimal move exists (AI is already in a
+ * P-position), any move hands the advantage back to the human anyway.
+ */
+function aiMoveEasy(piles, variant) {
+  const antiMoves = [];
+  for (let i = 0; i < piles.length; i++) {
+    if (piles[i] === 0) continue;
+    for (let take = 1; take <= piles[i]; take++) {
+      const after = piles.map((p, j) => j === i ? p - take : p);
+      if (nimSum(after) !== 0) {
+        antiMoves.push({ pile: i, take });
+      }
+    }
+  }
+  if (antiMoves.length > 0) {
+    return antiMoves[Math.floor(Math.random() * antiMoves.length)];
+  }
+  // Already in a P-position — any move gives human the advantage
+  return fallback(piles);
+}
+
+/**
+ * Medium difficulty: plays randomly most of the time, but occasionally
+ * executes the optimal strategy.
+ */
+function aiMoveMedium(piles, variant) {
+  if (Math.random() < 0.3) {
+    return aiMove(piles, variant);
+  }
+  const nonEmpty = piles.map((p, i) => i).filter(i => piles[i] > 0);
+  const pile = nonEmpty[Math.floor(Math.random() * nonEmpty.length)];
+  const take = Math.floor(Math.random() * piles[pile]) + 1;
+  return { pile, take };
 }
 
 // ── Win detection ─────────────────────────────────────────────────────────────
@@ -202,7 +244,14 @@ function triggerAI() {
   document.getElementById('game').classList.add('ai-thinking');
   setTimeout(() => {
     document.getElementById('game').classList.remove('ai-thinking');
-    const move = aiMove(state.piles, state.variant);
+    let move;
+    if (state.difficulty === 'easy') {
+      move = aiMoveEasy(state.piles, state.variant);
+    } else if (state.difficulty === 'medium') {
+      move = aiMoveMedium(state.piles, state.variant);
+    } else {
+      move = aiMove(state.piles, state.variant);
+    }
     doTake(move.pile, move.take);
   }, 600);
 }
@@ -218,6 +267,7 @@ function startGame() {
   state.selectedPile = null;
   state.mode = document.getElementById('mode-select').value;
   state.variant = document.getElementById('variant-select').value;
+  state.difficulty = document.getElementById('difficulty-select').value;
   state.over = false;
 
   document.getElementById('setup').classList.add('hidden');
@@ -233,6 +283,11 @@ function startGame() {
 }
 
 // ── Event listeners ───────────────────────────────────────────────────────────
+
+document.getElementById('mode-select').addEventListener('change', () => {
+  const isAI = document.getElementById('mode-select').value === 'hva';
+  document.getElementById('difficulty-setting').classList.toggle('hidden', !isAI);
+});
 
 document.getElementById('start-game').addEventListener('click', startGame);
 
