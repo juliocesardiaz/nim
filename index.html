@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nim</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <h1>Nim</h1>
+
+    <div id="setup" class="panel">
+      <h2>New Game</h2>
+      <div class="setting">
+        <label for="mode-select">Mode</label>
+        <select id="mode-select">
+          <option value="hvh">Human vs Human</option>
+          <option value="hva">Human vs AI</option>
+        </select>
+      </div>
+      <div class="setting">
+        <label for="variant-select">Variant</label>
+        <select id="variant-select">
+          <option value="normal">Normal (last to take wins)</option>
+          <option value="misere">Misère (last to take loses)</option>
+        </select>
+      </div>
+      <div class="setting">
+        <label>Piles</label>
+        <div id="pile-inputs">
+          <input type="number" class="pile-input" min="1" max="20" value="3">
+          <input type="number" class="pile-input" min="1" max="20" value="5">
+          <input type="number" class="pile-input" min="1" max="20" value="7">
+        </div>
+        <div class="pile-buttons">
+          <button id="add-pile" class="btn-sm">+ Pile</button>
+          <button id="remove-pile" class="btn-sm">− Pile</button>
+        </div>
+      </div>
+      <button id="start-game" class="btn-primary">Start Game</button>
+    </div>
+
+    <div id="game" class="panel hidden">
+      <div id="status-bar">
+        <span id="turn-label"></span>
+        <span id="variant-label"></span>
+      </div>
+
+      <div id="piles-container"></div>
+
+      <div id="controls">
+        <div class="control-row">
+          <label for="take-count">Take</label>
+          <input type="number" id="take-count" min="1" value="1">
+          <span>from pile</span>
+          <span id="selected-pile-label">—</span>
+        </div>
+        <button id="take-btn" class="btn-primary" disabled>Take Stones</button>
+      </div>
+
+      <div id="result-banner" class="hidden">
+        <p id="result-text"></p>
+        <button id="play-again" class="btn-primary">Play Again</button>
+      </div>
+
+      <button id="back-btn" class="btn-sm">← New Game</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
