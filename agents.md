@@ -21,10 +21,13 @@ nim/
 ├── style.css                        # Dark theme, layout, stone animations
 ├── favicon.svg                      # SVG logo for browser tab
 ├── README.md                        # User-facing docs (rules, setup, AI explanation)
+├── test_nimsum.js                   # Validates incremental XOR nim-sum matches full recalculation
+├── test_perf.js                     # Performance benchmark for aiMoveEasy (100k iterations)
+├── .jules/bolt.md                   # Bolt agent notes on the XOR optimisation
 └── .github/workflows/static.yml     # GitHub Pages deploy on push to main
 ```
 
-There is no `package.json`, no build step, no test suite.
+There is no `package.json`, no build step. Tests (`test_nimsum.js`, `test_perf.js`) run directly with Node.js — no test runner required.
 
 ---
 
@@ -54,7 +57,7 @@ State is reset on every call to `startGame()`. There is no persistence — refre
 |---|---|---|
 | `nimSum(piles)` | — | XOR of all pile sizes; 0 = losing position for current player |
 | `aiMove(piles, variant)` | Hard | Optimal: finds a move that reduces nim-sum to 0; handles Misère endgame separately |
-| `aiMoveEasy(piles, variant)` | Easy | Anti-optimal: picks moves that leave nim-sum ≠ 0, putting the human in a winning position; falls back to `fallback()` if already in a P-position |
+| `aiMoveEasy(piles, variant)` | Easy | Anti-optimal: enumerates moves leaving nim-sum ≠ 0 using incremental XOR (`currentNs ^ piles[i] ^ (piles[i] - take)`) — O(NM), no array allocation; picks randomly from anti-optimal candidates; falls back to `fallback()` if already in a P-position |
 | `aiMoveMedium(piles, variant)` | Medium | 30% chance of optimal play, 70% random (random pile + random take count) |
 | `fallback(piles)` | — | Takes 1 from the largest non-empty pile; used when the AI is already in a losing position |
 
@@ -148,6 +151,25 @@ Key element IDs used by `game.js`:
 
 ---
 
+## Security (`index.html`)
+
+A strict Content Security Policy is set via a `<meta>` tag:
+
+| Directive | Value | Effect |
+|---|---|---|
+| `default-src` | `'none'` | Block everything unless explicitly allowed |
+| `script-src` | `'self'` | Only scripts from the same origin; **no inline scripts** |
+| `style-src` | `'self' https://fonts.googleapis.com` | Self + Google Fonts CSS |
+| `font-src` | `https://fonts.gstatic.com` | Google Fonts files only |
+| `img-src` | `'self' data:` | Local images and inline data URIs |
+| `connect-src` | `'none'` | No XHR, fetch, or WebSocket |
+| `form-action` | `'none'` | No form submissions |
+| `base-uri` | `'none'` | No `<base>` tag overrides |
+
+**Implications for agents:** Do not add inline `<script>` or `<style>` tags, do not load external scripts or stylesheets from new origins, and do not add `fetch`/XHR calls — all of these will be blocked by the browser.
+
+---
+
 ## Deployment
 
 Push to `main` → GitHub Actions runs `.github/workflows/static.yml` → deploys to GitHub Pages. No build step needed; the workflow uploads the repo root as-is.
@@ -170,16 +192,7 @@ Push to `main` → GitHub Actions runs `.github/workflows/static.yml` → deploy
 
 - No backend, server, or API
 - No npm / package manager
-- No test suite
 - No TypeScript, transpilation, or bundler
 - No state persistence (localStorage, cookies, etc.)
 - No multiplayer over network — HvH is same-device only
 
----
-
-## Sentinel's Journal
-
-## 2024-11-20 - Strict Content Security Policy (CSP)
-**Vulnerability:** Missing Content Security Policy (CSP). While the app is pure client-side and safely uses `textContent` to prevent DOM-based XSS, a lack of CSP leaves it exposed to potential future injections if new features (like external data loading or dynamic HTML rendering) are added.
-**Learning:** Even static, zero-dependency apps benefit from defense-in-depth. A strict CSP ensures that the browser will block any unauthorized scripts, styles, or connections from running or sending data.
-**Prevention:** Always implement a restrictive `Content-Security-Policy` meta tag for static sites, locking down `script-src`, `style-src`, `font-src`, and setting `default-src` to `'none'`.
