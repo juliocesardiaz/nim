@@ -41,20 +41,22 @@ const state = {
   selectedPile: number | null,  // which pile the human has clicked
   mode: 'hvh' | 'hva',         // Human vs Human or Human vs AI
   variant: 'normal' | 'misere',
-  difficulty: 'easy' | 'medium' | 'hard',
+  difficulty: 'easy' | 'medium' | 'hard',  // default: 'hard'
   over: boolean
 }
 ```
+
+State is reset on every call to `startGame()`. There is no persistence — refreshing the page returns to the setup screen with default values.
 
 ### AI (`game.js:12–104`)
 
 | Function | Difficulty | Behaviour |
 |---|---|---|
 | `nimSum(piles)` | — | XOR of all pile sizes; 0 = losing position for current player |
-| `aiMove(piles, variant)` | Hard | Optimal: reduces nim-sum to 0; handles Misère endgame |
-| `aiMoveEasy(piles, variant)` | Easy | Anti-optimal: deliberately avoids winning moves |
-| `aiMoveMedium(piles, variant)` | Medium | Random 70% of the time, optimal 30% |
-| `fallback(piles)` | — | Takes 1 from largest pile; used when already losing |
+| `aiMove(piles, variant)` | Hard | Optimal: finds a move that reduces nim-sum to 0; handles Misère endgame separately |
+| `aiMoveEasy(piles, variant)` | Easy | Anti-optimal: picks moves that leave nim-sum ≠ 0, putting the human in a winning position; falls back to `fallback()` if already in a P-position |
+| `aiMoveMedium(piles, variant)` | Medium | 30% chance of optimal play, 70% random (random pile + random take count) |
+| `fallback(piles)` | — | Takes 1 from the largest non-empty pile; used when the AI is already in a losing position |
 
 ### Win Detection (`game.js:106–120`)
 
@@ -63,9 +65,13 @@ const state = {
 
 ### Rendering (`game.js:122–191`)
 
-- `renderPiles(removingPile?, removingCount?)` — rebuilds the pile DOM; pass args during animation
-- `renderStatus()` — updates turn label (teal = human, pink = AI) and variant label
-- `showResult(winnerIdx)` — shows result banner, hides controls
+- `playerName(idx)` — returns `"You"` / `"AI"` in HvA mode, `"Player 1"` / `"Player 2"` in HvH mode; used by `renderStatus()` and `showResult()`
+- `renderPiles(removingPile?, removingCount?)` — fully rebuilds `#piles-container`; pass args to mark stones with `.removing` during the 300 ms animation. Dynamically applies these classes to each `.pile-row`:
+  - `.empty` — pile has 0 stones
+  - `.selected` — this pile is the currently selected pile
+  - `.disabled` — game over, or it's the AI's turn (prevents clicks)
+- `renderStatus()` — updates `#turn-label` text and `.ai-turn` class (pink for AI, teal for human); updates `#variant-label`
+- `showResult(winnerIdx)` — populates `#result-text`, shows `#result-banner`, hides `#controls`
 
 ### Player Actions (`game.js:193–257`)
 
@@ -75,8 +81,14 @@ const state = {
 
 ### Setup (`game.js:259–334`)
 
-- `startGame()` — reads pile inputs and dropdowns, resets state, switches view from `#setup` to `#game`
-- Event listeners for mode/variant/difficulty selectors, add/remove pile buttons, take-stones button, play-again and back buttons
+- `startGame()` — reads pile inputs (clamped 1–20) and dropdowns, resets full state, switches view from `#setup` to `#game`; called both on first start and on "Play Again"
+- Event listeners wired at module level (no framework):
+  - `#mode-select` change → toggles visibility of `#difficulty-setting`
+  - `#take-count` input → calls `renderPiles(selectedPile, val)` to live-preview which stones will be removed as the user types
+  - `#take-btn` click → clamps input value then calls `doTake()`
+  - `#add-pile` / `#remove-pile` → append/remove `.pile-input` elements (1–6 limit enforced)
+  - `#play-again` → calls `startGame()` (re-reads the same config)
+  - `#back-btn` → shows `#setup`, hides `#game`
 
 ---
 
@@ -100,22 +112,25 @@ Key element IDs used by `game.js`:
 
 | ID | Purpose |
 |---|---|
-| `#piles-container` | Rebuilt on every render |
-| `#turn-label` | Current player indicator |
+| `#setup` | Setup view (hidden during game) |
+| `#game` | Game view (hidden during setup); receives `.ai-thinking` class during AI turn |
+| `#piles-container` | Rebuilt on every `renderPiles()` call |
+| `#turn-label` | Current player indicator; receives `.ai-turn` class when AI is playing |
 | `#variant-label` | "Normal" or "Misère" |
-| `#result-banner` | Win/lose message |
-| `#controls` | Take-stones form |
-| `#take-count` | Stone count input |
-| `#take-btn` | Submit move |
-| `#selected-pile-label` | Shows which pile is selected |
+| `#result-banner` | Win/lose overlay; hidden until game ends |
+| `#result-text` | Text node inside `#result-banner` set by `showResult()` |
+| `#controls` | Take-stones form; hidden on game over |
+| `#take-count` | Stone count input; `max` attr updated on pile select; live-previews removal on `input` event |
+| `#take-btn` | Submit move; disabled until a pile is selected |
+| `#selected-pile-label` | Displays selected pile number or "—" |
 | `#mode-select` | `'hvh'` / `'hva'` |
 | `#variant-select` | `'normal'` / `'misere'` |
 | `#difficulty-select` | `'easy'` / `'medium'` / `'hard'` |
-| `#difficulty-setting` | Wrapper hidden in HvH mode |
-| `#pile-inputs` | Container for pile count inputs |
+| `#difficulty-setting` | Wrapper div hidden in HvH mode |
+| `#pile-inputs` | Container for `.pile-input` number elements |
 | `#add-pile` / `#remove-pile` | Add/remove pile inputs (1–6 limit) |
 | `#start-game` | Launches game from setup |
-| `#play-again` | Restarts with same config |
+| `#play-again` | Restarts with same config (calls `startGame()`) |
 | `#back-btn` | Returns to setup screen |
 
 ---
@@ -136,6 +151,18 @@ Key element IDs used by `game.js`:
 ## Deployment
 
 Push to `main` → GitHub Actions runs `.github/workflows/static.yml` → deploys to GitHub Pages. No build step needed; the workflow uploads the repo root as-is.
+
+---
+
+## Agent Tips
+
+- **No async coordination needed.** All timing is `setTimeout`-based (300 ms for stone removal, 600 ms for AI "thinking"). If you're testing logic, you can call AI functions and `doTake()` directly without waiting.
+- **`renderPiles()` is destructive.** It wipes `#piles-container` innerHTML completely on every call. Don't cache child elements across renders.
+- **`startGame()` is the reset point.** It reads DOM values, not `state`, so calling it again picks up whatever is currently in the setup inputs.
+- **Easy AI is not random — it's anti-optimal.** It enumerates all possible moves and deliberately picks ones that leave nim-sum ≠ 0. It only falls back to random-ish behavior when already in a losing position.
+- **HvH mode ignores `difficulty`.** The `difficulty` field in state is set but `triggerAI()` is never called in HvH games.
+- **Misère endgame is the only special case in `aiMove()`.** When all piles ≤ 1, the standard nim-sum strategy is wrong; `aiMove()` handles this explicitly before the nim-sum calculation.
+- **Pile inputs are read at game start only.** Changes to `#pile-inputs` after `startGame()` has been called have no effect until the next `startGame()`.
 
 ---
 
