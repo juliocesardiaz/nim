@@ -174,3 +174,12 @@ Push to `main` → GitHub Actions runs `.github/workflows/static.yml` → deploy
 - No TypeScript, transpilation, or bundler
 - No state persistence (localStorage, cookies, etc.)
 - No multiplayer over network — HvH is same-device only
+
+---
+
+## Sentinel's Journal
+
+## 2024-11-20 - Strict Content Security Policy (CSP)
+**Vulnerability:** Missing Content Security Policy (CSP). While the app is pure client-side and safely uses `textContent` to prevent DOM-based XSS, a lack of CSP leaves it exposed to potential future injections if new features (like external data loading or dynamic HTML rendering) are added.
+**Learning:** Even static, zero-dependency apps benefit from defense-in-depth. A strict CSP ensures that the browser will block any unauthorized scripts, styles, or connections from running or sending data.
+**Prevention:** Always implement a restrictive `Content-Security-Policy` meta tag for static sites, locking down `script-src`, `style-src`, `font-src`, and setting `default-src` to `'none'`.
