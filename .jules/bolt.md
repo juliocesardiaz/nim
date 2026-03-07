@@ -1,0 +1,3 @@
+## 2024-05-24 - Avoiding Array Allocations in Nim Game Trees
+**Learning:** In combinatorial game state searches like Nim where the winning condition relies on a mathematical function (XOR nim-sum), recomputing the state across the entire tree by deep copying arrays creates massive garbage collection and O(N) allocation overhead per move generated.
+**Action:** When calculating potential next states for games with arithmetic evaluation functions (like XOR/nim-sum), compute the base value once. Calculate incremental state changes with an O(1) mathematical operation (e.g., `current_state ^ old_val ^ new_val`) instead of cloning arrays and recalculating from scratch.

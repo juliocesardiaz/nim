@@ -73,11 +73,17 @@ function fallback(piles) {
  */
 function aiMoveEasy(piles, variant) {
   const antiMoves = [];
+  // ⚡ Bolt: Calculate current nim-sum once (O(N)) instead of recalculating
+  // via O(N) array allocation on every possible move (O(N^2 * max_stones)).
+  const currentNs = nimSum(piles);
+
   for (let i = 0; i < piles.length; i++) {
     if (piles[i] === 0) continue;
     for (let take = 1; take <= piles[i]; take++) {
-      const after = piles.map((p, j) => j === i ? p - take : p);
-      if (nimSum(after) !== 0) {
+      // ⚡ Bolt: A move changes exactly one pile, so the new nim-sum is
+      // currentNs ^ old_pile_size ^ new_pile_size (O(1) calculation).
+      const newNs = currentNs ^ piles[i] ^ (piles[i] - take);
+      if (newNs !== 0) {
         antiMoves.push({ pile: i, take });
       }
     }
